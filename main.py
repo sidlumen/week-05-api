@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException, Depends
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from typing import Optional
 
@@ -10,6 +11,14 @@ from schemas import BookCreate, BookUpdate, BookResponse
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Book Tracker API", version="2.0.0")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.get("/")
@@ -84,3 +93,4 @@ def delete_book(book_id: int, db: Session = Depends(get_db)):
     db.delete(book)
     db.commit()
     return {"message": "Book deleted"}
+
