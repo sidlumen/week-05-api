@@ -126,3 +126,54 @@ Be conversational, enthusiastic about books, and concise in your responses.""",
         "reply": reply,
         "updated_history": messages + [{"role": "assistant", "content": reply}]
     }
+
+
+@app.post("/ai/recommend")
+def get_recommendations(request: ChatRequest, db: Session = Depends(get_db)):
+    # Fetch all books from the database
+    books = db.query(Book).all()
+
+    # Build a summary of the user's library
+    read_books = [b for b in books if b.status == "read"]
+    reading_books = [b for b in books if b.status == "reading"]
+
+    book_context = "Here is the user's book library:\n"
+
+    if read_books:
+        book_context += "\nBooks they've read:\n"
+        for b in read_books:
+            rating_str = f" (rated {b.rating}/5)" if b.rating else ""
+            book_context += f"- {b.title} by {b.author}{rating_str}\n"
+
+    if reading_books:
+        book_context += "\nCurrently reading:\n"
+        for b in reading_books:
+            book_context += f"- {b.title} by {b.author}\n"
+
+    if not read_books and not reading_books:
+        book_context += "No books tracked yet.\n"
+
+    system_prompt = f"""You are a personalized book recommendation assistant.
+
+{book_context}
+
+Based on this reading history, provide thoughtful, personalized recommendations.
+Be specific about why each recommendation matches their taste.
+Keep responses concise — 2-3 recommendations at most unless asked for more."""
+
+    messages = request.conversation_history + [
+        {"role": "user", "content": request.message}
+    ]
+
+    response = ai_client.messages.create(
+        model="claude-sonnet-4-6",
+        max_tokens=1024,
+        system=system_prompt,
+        messages=messages
+    )
+
+    reply = response.content[0].text
+    return {
+        "reply": reply,
+        "updated_history": messages + [{"role": "assistant", "content": reply}]
+    }
