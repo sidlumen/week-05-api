@@ -1,5 +1,7 @@
+import anthropic
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from typing import Optional
 
@@ -94,3 +96,33 @@ def delete_book(book_id: int, db: Session = Depends(get_db)):
     db.commit()
     return {"message": "Book deleted"}
 
+
+ai_client = anthropic.Anthropic()
+
+
+class ChatRequest(BaseModel):
+    message: str
+    conversation_history: list[dict] = []
+
+
+@app.post("/ai/chat")
+def chat_with_assistant(request: ChatRequest):
+    messages = request.conversation_history + [
+        {"role": "user", "content": request.message}
+    ]
+
+    response = ai_client.messages.create(
+        model="claude-sonnet-4-6",
+        max_tokens=1024,
+        system="""You are a helpful book assistant for a personal book tracking app.
+Help users discover books, discuss what they've read, and get personalized recommendations.
+Be conversational, enthusiastic about books, and concise in your responses.""",
+        messages=messages
+    )
+
+    reply = response.content[0].text
+
+    return {
+        "reply": reply,
+        "updated_history": messages + [{"role": "assistant", "content": reply}]
+    }
