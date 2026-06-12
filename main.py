@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from typing import Optional
 
+from agent import run_agent, tools, tool_functions
 from database import engine, get_db
 from models import Book, Base
 from schemas import BookCreate, BookUpdate, BookResponse
@@ -176,3 +177,13 @@ Keep responses concise — 2-3 recommendations at most unless asked for more."""
         "reply": reply,
         "updated_history": messages + [{"role": "assistant", "content": reply}]
     }
+
+
+class AgentRequest(BaseModel):
+    message: str
+
+
+@app.post("/ai/agent")
+def book_agent(request: AgentRequest):
+    reply, agent_steps = run_agent(request.message, tools, tool_functions)
+    return {"response": reply, "agent_steps": agent_steps}
